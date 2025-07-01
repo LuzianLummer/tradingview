@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: tradingview
+      POSTGRES_PASSWORD: tradingview
+      POSTGRES_DB: tradingview
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
+       interval: 5s
+       timeout: 5s
+       retries: 5
+
+  ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./ingestion:/app/ingestion
+    depends_on:
+      postgres:
+        condition: service_healthy
+      
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=tradingview
+      - POSTGRES_PASSWORD=tradingview
+      - POSTGRES_DB=tradingview
+
+volumes:
+  postgres_data: 
