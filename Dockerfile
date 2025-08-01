@@ -11,8 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Kopiere den Rest des Codes ins Arbeitsverzeichnis
 COPY . .
 
-# Setze die Umgebungsvariable für Python (optional, für saubere Logs) und nutze mock data
+# Setze die Umgebungsvariable für Python (optional, für saubere Logs)
 ENV PYTHONUNBUFFERED=1
-ENV USE_MOCK_DATA=true
-# Standardbefehl: Starte das Skript
-CMD ["python", "ingestion/ingest.py"]
