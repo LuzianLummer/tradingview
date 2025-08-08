@@ -1,15 +1,16 @@
 # Nutze ein schlankes Python-Image als Basis
 FROM python:3.11-slim
 
-# Setze das Arbeitsverzeichnis im Container
+# Set working directory inside the container
 WORKDIR /app
 
-# Kopiere die requirements.txt und installiere die Abhängigkeiten
-COPY requirements.txt .
+# Copy requirements and install dependencies
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Kopiere den Rest des Codes ins Arbeitsverzeichnis
-COPY . .
+# Copy project code
+COPY src ./src
+COPY dags ./dags
 
-# Setze die Umgebungsvariable für Python (optional, für saubere Logs)
+# Helpful for unbuffered logs
 ENV PYTHONUNBUFFERED=1

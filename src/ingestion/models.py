@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Float, Integer, String, DateTime
+from sqlalchemy import Column, Float, Integer, String, DateTime, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import UniqueConstraint
 
@@ -15,7 +15,8 @@ class MarketData(Base):
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
     close = Column(Float, nullable=False)
-    volume = Column(Integer, nullable=False)
+    volume = Column(BigInteger, nullable=False)
+    market_state = Column(String(50), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("symbol", "timestamp", name="_symbol_timestamp_uc"),
@@ -35,7 +36,7 @@ class RawMarketData(Base):
     high = Column(Float, nullable=False)
     low = Column(Float, nullable=False)
     close = Column(Float, nullable=False)
-    volume = Column(Integer, nullable=False)
+    volume = Column(BigInteger, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("symbol", "timestamp", name="_raw_symbol_timestamp_uc"),
@@ -45,7 +46,5 @@ class RawMarketData(Base):
         return f"<RawMarketData(symbol='{self.symbol}', timestamp='{self.timestamp}')>"
 
 
-# Helper function to create all tables. This should be called once, e.g., at application startup.
 def create_all_tables(engine):
     Base.metadata.create_all(engine)
-    print("All tables created.")

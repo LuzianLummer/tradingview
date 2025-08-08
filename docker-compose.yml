@@ -4,14 +4,14 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: tradingview
-      POSTGRES_PASSWORD: tradingview
-      POSTGRES_DB: tradingview
+      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+      # ORM is the single source of truth for schema; no SQL init file mounted
     healthcheck:
        test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
        interval: 5s
@@ -30,17 +30,17 @@ services:
       dockerfile: Dockerfile.airflow
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://tradingview:tradingview@postgres/tradingview
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://tradingview:tradingview@postgres/tradingview
-      AIRFLOW__WEBSERVER__SECRET_KEY: "7b36cefb4668d507c2b6a58babb8a33b04436fbc0d190733b18fd7feb467914f" # Generiere einen starken, eindeutigen Schlüssel für die Produktion
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
       AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
-      PYTHONPATH: /opt/airflow/tradingview_project # Add project root to PYTHONPATH
+      PYTHONPATH: /opt/airflow/tradingview_project
       POSTGRES_HOST: postgres
-      POSTGRES_USER: tradingview
-      POSTGRES_PASSWORD: tradingview
-      POSTGRES_DB: tradingview
+      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     depends_on:
       postgres:
         condition: service_healthy
@@ -54,21 +54,21 @@ services:
       - "8080:8080"
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://tradingview:tradingview@postgres/tradingview
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://tradingview:tradingview@postgres/tradingview
-      AIRFLOW__WEBSERVER__SECRET_KEY: "7b36cefb4668d507c2b6a58babb8a33b04436fbc0d190733b18fd7feb467914f" # Generiere einen starken, eindeutigen Schlüssel für die Produktion
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
       AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
-      PYTHONPATH: /opt/airflow/tradingview_project # Add project root to PYTHONPATH
+      PYTHONPATH: /opt/airflow/tradingview_project
       POSTGRES_HOST: postgres
-      POSTGRES_USER: tradingview
-      POSTGRES_PASSWORD: tradingview
-      POSTGRES_DB: tradingview
+      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
-      - airflow_logs:/opt/airflow/logs # Gemeinsames Volume für Logs
-      - .:/opt/airflow/tradingview_project # Mount the entire project
+      - airflow_logs:/opt/airflow/logs
+      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -84,21 +84,21 @@ services:
       dockerfile: Dockerfile.airflow
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://tradingview:tradingview@postgres/tradingview
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://tradingview:tradingview@postgres/tradingview
-      AIRFLOW__WEBSERVER__SECRET_KEY: "7b36cefb4668d507c2b6a58babb8a33b04436fbc0d190733b18fd7feb467914f" # Generiere einen starken, eindeutigen Schlüssel für die Produktion
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
       AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
-      PYTHONPATH: /opt/airflow/tradingview_project # Add project root to PYTHONPATH
+      PYTHONPATH: /opt/airflow/tradingview_project
       POSTGRES_HOST: postgres
-      POSTGRES_USER: tradingview
-      POSTGRES_PASSWORD: tradingview
-      POSTGRES_DB: tradingview
+      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
-      - airflow_logs:/opt/airflow/logs # Gemeinsames Volume für Logs
-      - .:/opt/airflow/tradingview_project # Mount the entire project
+      - airflow_logs:/opt/airflow/logs
+      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -114,21 +114,21 @@ services:
       dockerfile: Dockerfile.airflow
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://tradingview:tradingview@postgres/tradingview
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
       AIRFLOW__CORE__EXECUTOR: CeleryExecutor
       AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://tradingview:tradingview@postgres/tradingview
-      AIRFLOW__WEBSERVER__SECRET_KEY: "7b36cefb4668d507c2b6a58babb8a33b04436fbc0d190733b18fd7feb467914f" # Generiere einen starken, eindeutigen Schlüssel für die Produktion
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
+      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
       AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
-      PYTHONPATH: /opt/airflow/tradingview_project # Add project root to PYTHONPATH
+      PYTHONPATH: /opt/airflow/tradingview_project
       POSTGRES_HOST: postgres
-      POSTGRES_USER: tradingview
-      POSTGRES_PASSWORD: tradingview
-      POSTGRES_DB: tradingview
+      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
+      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
-      - airflow_logs:/opt/airflow/logs # Gemeinsames Volume für Logs
-      - .:/opt/airflow/tradingview_project # Mount the entire project
+      - airflow_logs:/opt/airflow/logs
+      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -143,18 +143,19 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./ingestion_pipeline:/app
+      - ./src:/app/src
+      - ./dags:/app/dags
+      - ./src/ingestion/tickers.txt:/app/src/ingestion/tickers.txt
     depends_on:
       postgres:
         condition: service_healthy
       
     environment:
       - POSTGRES_HOST=postgres
-      - POSTGRES_USER=tradingview
-      - POSTGRES_PASSWORD=tradingview
-      - POSTGRES_DB=tradingview
-      - USE_fffff_DATA=false
+      - POSTGRES_USER=${POSTGRES_USER:-tradingview}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-tradingview}
+      - POSTGRES_DB=${POSTGRES_DB:-tradingview}
 
 volumes:
   postgres_data: 
-  airflow_logs: # Neues Volume für Airflow Logs 
+  airflow_logs:

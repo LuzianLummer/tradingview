@@ -1,11 +1,12 @@
 FROM apache/airflow:2.8.1-python3.11
 
-# Installieren Sie Airflow-Abhängigkeiten und Ihre spezifischen Pakete
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir "apache-airflow[postgres,celery]==2.8.1" -r /tmp/requirements.txt
+# Install additional python packages needed by the DAGs
+# Airflow base image already contains Airflow. Install only project-specific libs needed by DAGs.
+COPY requirements-airflow.txt /tmp/requirements-airflow.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-airflow.txt
 
-# Erstellen Sie den dags Ordner
+# Create DAGs directory
 RUN mkdir -p /opt/airflow/dags
 
-# Setzen Sie das Arbeitsverzeichnis
+# Set working directory
 WORKDIR /opt/airflow 
