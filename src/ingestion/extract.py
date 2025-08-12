@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from src.common.logger_config import setup_logging
+from src.common.validation import DataValidator, ValidationError
 
 
 setup_logging()
@@ -131,6 +132,16 @@ class DataExtractor:
             data_local = _download_from_stooq(symbol_in, start_s, end_s)
             if data_local is not None and not data_local.empty:
                 return data_local
+            # Inform when falling back to Yahoo Finance because Stooq returned no data
+            if data_local is None or data_local.empty:
+                if start_s and end_s:
+                    logger.info(
+                        f"Stooq returned no data for {symbol_in} from {start_s} to {end_s}; falling back to Yahoo Finance."
+                    )
+                else:
+                    logger.info(
+                        f"Stooq returned no data for {symbol_in} (period={period_s}); falling back to Yahoo Finance."
+                    )
             if start_s and end_s:
                 data_local = yf.download(
                     tickers=symbol_in,
@@ -168,33 +179,14 @@ class DataExtractor:
             return data_local
 
         def _normalize_dataframe(df_in: pd.DataFrame) -> pd.DataFrame:
-            df_out = df_in.rename(
-                columns={
-                    "Open": "open",
-                    "High": "high",
-                    "Low": "low",
-                    "Close": "close",
-                    "Volume": "volume",
-                }
-            ).copy()
-            df_out.reset_index(inplace=True)
-            df_out.rename(
-                columns={"Datetime": "timestamp", "Date": "timestamp"}, inplace=True
-            )
-            df_out["symbol"] = symbol
-            df_out = df_out[
-                ["symbol", "timestamp", "open", "high", "low", "close", "volume"]
-            ]
-            return df_out
+            return DataValidator.normalize_raw_market_dataframe(df_in, symbol)
 
         def _fetch_chunked(start_s: str, end_s: str) -> Optional[pd.DataFrame]:
             start_dt = datetime.fromisoformat(start_s)
             end_dt = datetime.fromisoformat(end_s)
             stooq_df = _download_from_stooq(symbol, start_s, end_s)
             if stooq_df is not None and not stooq_df.empty:
-                stooq_df.drop_duplicates(subset=["symbol", "timestamp"], inplace=True)
-                stooq_df.sort_values(by="timestamp", inplace=True)
-                return stooq_df
+                return DataValidator.combine_and_clean([stooq_df], require_non_empty=True)
             chunk_size_days = 365 * 5
             frames: list[pd.DataFrame] = []
             current_start = start_dt
@@ -235,10 +227,7 @@ class DataExtractor:
                 current_start = current_end + timedelta(days=1)
             if not frames:
                 return None
-            combined = pd.concat(frames, ignore_index=True)
-            combined.drop_duplicates(subset=["symbol", "timestamp"], inplace=True)
-            combined.sort_values(by="timestamp", inplace=True)
-            return combined
+            return DataValidator.combine_and_clean(frames, require_non_empty=True)
 
         while retries <= max_retries:
             log_msg = f"Fetching data for {symbol}"
@@ -268,7 +257,13 @@ class DataExtractor:
                     if data is None or data.empty:
                         raise ValueError("Empty dataframe from Yahoo Finance")
                     data = _normalize_dataframe(data)
-                logger.info(f"Fetched and normalized {len(data)} rows for {symbol}.")
+                # Global validation pipeline (unified)
+                try:
+                    data = DataValidator.combine_and_clean([data], require_non_empty=True)
+                except ValidationError as ve:
+                    raise ValueError(f"Validation failed: {ve}")
+
+                logger.info(f"Fetched, normalized and validated {len(data)} rows for {symbol}.")
                 return data
             except Exception as e:
                 logger.error(

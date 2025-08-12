@@ -8,24 +8,14 @@ from sqlalchemy import func
 from src.common.logger_config import setup_logging
 from src.ingestion.database import DatabaseManager
 from src.ingestion.models import MarketData, RawMarketData
+from src.common.validation import DataValidator, ValidationError
 
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 
-def _to_python_scalar(value):
-    if hasattr(value, "to_pydatetime"):
-        try:
-            return value.to_pydatetime()
-        except Exception:
-            pass
-    if hasattr(value, "item"):
-        try:
-            return value.item()
-        except Exception:
-            pass
-    return value
+ 
 
 
 class DataIngestor:
@@ -49,13 +39,19 @@ class DataIngestor:
             logger.warning("Empty DataFrame received, nothing to save.")
             return
 
+        # Validate upfront to ensure DB cleanliness
+        try:
+            df = DataValidator.enforce_market_schema(df)
+            df = DataValidator.deduplicate_market_dataframe(df)
+            df = DataValidator.ensure_sorted_by_timestamp(df)
+            DataValidator.validate_market_dataframe(df, require_non_empty=True)
+        except ValidationError as ve:
+            logger.error(f"Validation failed before insert: {ve}")
+            return
+
         with DatabaseManager.get_session() as session:
-            symbols_list = [
-                _to_python_scalar(s) for s in df["symbol"].unique().tolist()
-            ]
-            timestamps_list = [
-                _to_python_scalar(t) for t in df["timestamp"].unique().tolist()
-            ]
+            symbols_list = [DataValidator.to_python_scalar(s) for s in df["symbol"].unique().tolist()]
+            timestamps_list = [DataValidator.to_python_scalar(t) for t in df["timestamp"].unique().tolist()]
 
             existing_raw = (
                 session.query(RawMarketData.symbol, RawMarketData.timestamp)
@@ -77,19 +73,19 @@ class DataIngestor:
             new_market_rows = []
 
             for _, row in df.iterrows():
-                sym = _to_python_scalar(row["symbol"])
-                ts = _to_python_scalar(row["timestamp"])
+                sym = DataValidator.to_python_scalar(row["symbol"])
+                ts = DataValidator.to_python_scalar(row["timestamp"])
                 key = (sym, ts)
                 if key not in existing_raw_keys:
                     new_raw_rows.append(
                         RawMarketData(
                             symbol=sym,
                             timestamp=ts,
-                            open=_to_python_scalar(row["open"]),
-                            high=_to_python_scalar(row["high"]),
-                            low=_to_python_scalar(row["low"]),
-                            close=_to_python_scalar(row["close"]),
-                            volume=_to_python_scalar(row["volume"]),
+                            open=DataValidator.to_python_scalar(row["open"]),
+                            high=DataValidator.to_python_scalar(row["high"]),
+                            low=DataValidator.to_python_scalar(row["low"]),
+                            close=DataValidator.to_python_scalar(row["close"]),
+                            volume=DataValidator.to_python_scalar(row["volume"]),
                         )
                     )
                 if key not in existing_market_keys:
@@ -97,11 +93,11 @@ class DataIngestor:
                         MarketData(
                             symbol=sym,
                             timestamp=ts,
-                            open=_to_python_scalar(row["open"]),
-                            high=_to_python_scalar(row["high"]),
-                            low=_to_python_scalar(row["low"]),
-                            close=_to_python_scalar(row["close"]),
-                            volume=_to_python_scalar(row["volume"]),
+                            open=DataValidator.to_python_scalar(row["open"]),
+                            high=DataValidator.to_python_scalar(row["high"]),
+                            low=DataValidator.to_python_scalar(row["low"]),
+                            close=DataValidator.to_python_scalar(row["close"]),
+                            volume=DataValidator.to_python_scalar(row["volume"]),
                         )
                     )
 

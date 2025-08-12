@@ -1,4 +1,5 @@
-## Trading Data Ingestion & Transformation (Airflow + Postgres)
+## Trading Data Ingestion & Transformation (Airflow + Postgres)   
+## WORK IN PROGRESS
 
 This project ingests market data (yfinance with Stooq fallback), stores both raw and normalized data into Postgres via SQLAlchemy (ORM as the single source of truth), and transforms data into market states using a simple ML step. Airflow orchestrates daily and backfill workflows.
 
