@@ -2,7 +2,8 @@ from airflow.decorators import dag, task
 from datetime import datetime, timedelta
 
 import logging
-from src.ingestion.extract import DataExtractor, read_tickers_from_file
+from src.ingestion.extract import DataExtractor
+from src.common.utilfunctions import read_tickers_from_file
 from src.ingestion.ingest import DataIngestor
 from src.common.logger_config import setup_logging
 import time

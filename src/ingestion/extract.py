@@ -14,26 +14,10 @@ from urllib3.util.retry import Retry
 
 from src.common.logger_config import setup_logging
 from src.common.validation import DataValidator, ValidationError
-
+from src.common.utilfunctions import read_tickers_from_file
 
 setup_logging()
 logger = logging.getLogger(__name__)
-
-
-def read_tickers_from_file(file_name: str = "tickers.txt") -> List[str]:
-    current_dir = Path(__file__).resolve().parent
-    tickers_file_path = current_dir / file_name
-    tickers: List[str] = []
-    try:
-        with open(tickers_file_path, "r") as f:
-            for line in f:
-                ticker = line.strip()
-                if ticker:
-                    tickers.append(ticker)
-    except FileNotFoundError:
-        logger.error(f"Ticker file not found: {tickers_file_path}")
-        return []
-    return tickers
 
 
 class DataExtractor:
@@ -186,7 +170,9 @@ class DataExtractor:
             end_dt = datetime.fromisoformat(end_s)
             stooq_df = _download_from_stooq(symbol, start_s, end_s)
             if stooq_df is not None and not stooq_df.empty:
-                return DataValidator.combine_and_clean([stooq_df], require_non_empty=True)
+                return DataValidator.combine_and_clean(
+                    [stooq_df], require_non_empty=True
+                )
             chunk_size_days = 365 * 5
             frames: list[pd.DataFrame] = []
             current_start = start_dt
@@ -259,11 +245,15 @@ class DataExtractor:
                     data = _normalize_dataframe(data)
                 # Global validation pipeline (unified)
                 try:
-                    data = DataValidator.combine_and_clean([data], require_non_empty=True)
+                    data = DataValidator.combine_and_clean(
+                        [data], require_non_empty=True
+                    )
                 except ValidationError as ve:
                     raise ValueError(f"Validation failed: {ve}")
 
-                logger.info(f"Fetched, normalized and validated {len(data)} rows for {symbol}.")
+                logger.info(
+                    f"Fetched, normalized and validated {len(data)} rows for {symbol}."
+                )
                 return data
             except Exception as e:
                 logger.error(

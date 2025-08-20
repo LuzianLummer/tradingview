@@ -44,11 +44,17 @@ class DataValidator:
         ).copy()
 
         # If index looks like a datetime index from yfinance/history, move it to a column
-        if not any(c in df_out.columns for c in ["timestamp", "Datetime", "Date", "index"]):
+        if not any(
+            c in df_out.columns for c in ["timestamp", "Datetime", "Date", "index"]
+        ):
             df_out.reset_index(inplace=True)
 
         # Normalize time column name
-        rename_candidates = {"Datetime": "timestamp", "Date": "timestamp", "index": "timestamp"}
+        rename_candidates = {
+            "Datetime": "timestamp",
+            "Date": "timestamp",
+            "index": "timestamp",
+        }
         for old, new in rename_candidates.items():
             if old in df_out.columns and new not in df_out.columns:
                 df_out.rename(columns={old: new}, inplace=True)
@@ -58,7 +64,9 @@ class DataValidator:
             df_out["symbol"] = symbol
 
         # Keep only the standard columns if present
-        keep_cols = [c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c in df_out.columns]
+        keep_cols = [
+            c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c in df_out.columns
+        ]
         if keep_cols:
             df_out = df_out[keep_cols]
 
@@ -75,7 +83,9 @@ class DataValidator:
         combined = DataValidator.enforce_market_schema(combined)
         combined = DataValidator.deduplicate_market_dataframe(combined)
         combined = DataValidator.ensure_sorted_by_timestamp(combined)
-        DataValidator.validate_market_dataframe(combined, require_non_empty=require_non_empty)
+        DataValidator.validate_market_dataframe(
+            combined, require_non_empty=require_non_empty
+        )
         return combined
 
     @staticmethod
@@ -100,7 +110,9 @@ class DataValidator:
         df_out = df.copy()
 
         # Ensure required columns exist before casting
-        missing = [c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df_out.columns]
+        missing = [
+            c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df_out.columns
+        ]
         if missing:
             # Try to be forgiving if common alternative names exist
             rename_map = {}
@@ -110,12 +122,18 @@ class DataValidator:
                 rename_map["Date"] = "timestamp"
             if rename_map:
                 df_out = df_out.rename(columns=rename_map)
-            missing = [c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df_out.columns]
+            missing = [
+                c
+                for c in DataValidator.REQUIRED_MARKET_COLUMNS
+                if c not in df_out.columns
+            ]
         if missing:
             raise ValidationError(f"Missing required columns: {missing}")
 
         # Cast dtypes
-        df_out["timestamp"] = pd.to_datetime(df_out["timestamp"], errors="coerce", utc=False)
+        df_out["timestamp"] = pd.to_datetime(
+            df_out["timestamp"], errors="coerce", utc=False
+        )
         df_out["symbol"] = df_out["symbol"].astype(str).str.strip()
 
         numeric_cols = ["open", "high", "low", "close", "volume"]
@@ -123,7 +141,9 @@ class DataValidator:
             df_out[col] = pd.to_numeric(df_out[col], errors="coerce")
 
         # Basic cleanup: drop rows where key fields are NA after coercion
-        df_out = df_out.dropna(subset=["symbol", "timestamp", "open", "high", "low", "close", "volume"]) 
+        df_out = df_out.dropna(
+            subset=["symbol", "timestamp", "open", "high", "low", "close", "volume"]
+        )
 
         # Normalize volume to integer if possible
         try:
@@ -137,14 +157,18 @@ class DataValidator:
         return df_out
 
     @staticmethod
-    def deduplicate_market_dataframe(df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    def deduplicate_market_dataframe(
+        df: Optional[pd.DataFrame],
+    ) -> Optional[pd.DataFrame]:
         if df is None or df.empty:
             return df
         df_out = df.drop_duplicates(subset=["symbol", "timestamp"]).copy()
         return df_out
 
     @staticmethod
-    def ensure_sorted_by_timestamp(df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    def ensure_sorted_by_timestamp(
+        df: Optional[pd.DataFrame],
+    ) -> Optional[pd.DataFrame]:
         if df is None or df.empty:
             return df
         return df.sort_values(by=["symbol", "timestamp"]).reset_index(drop=True)
@@ -161,7 +185,9 @@ class DataValidator:
             raise ValidationError("DataFrame is empty")
 
         # Columns
-        missing = [c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df.columns]
+        missing = [
+            c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df.columns
+        ]
         if missing:
             raise ValidationError(f"Missing required columns: {missing}")
 
@@ -175,7 +201,12 @@ class DataValidator:
                 raise ValidationError(f"{col} must be numeric")
 
         # Value checks
-        if (df["open"] < 0).any() or (df["high"] < 0).any() or (df["low"] < 0).any() or (df["close"] < 0).any():
+        if (
+            (df["open"] < 0).any()
+            or (df["high"] < 0).any()
+            or (df["low"] < 0).any()
+            or (df["close"] < 0).any()
+        ):
             raise ValidationError("Price columns contain negative values")
         if (df["volume"] < 0).any():
             raise ValidationError("volume contains negative values")
@@ -184,15 +215,17 @@ class DataValidator:
         dup_mask = df.duplicated(subset=["symbol", "timestamp"], keep=False)
         if dup_mask.any():
             dups = df.loc[dup_mask, ["symbol", "timestamp"]].head(5).to_dict("records")
-            raise ValidationError(f"Duplicate (symbol,timestamp) rows found, e.g. {dups}")
+            raise ValidationError(
+                f"Duplicate (symbol,timestamp) rows found, e.g. {dups}"
+            )
 
     @staticmethod
     def validate_time_window(
-        df: Optional[pd.DataFrame], start: Optional[pd.Timestamp], end: Optional[pd.Timestamp]
+        df: Optional[pd.DataFrame],
+        start: Optional[pd.Timestamp],
+        end: Optional[pd.Timestamp],
     ) -> None:
         if df is None or df.empty or start is None or end is None:
             return
         if df["timestamp"].min() < start or df["timestamp"].max() > end:
             raise ValidationError("Rows fall outside the requested time window")
-
-

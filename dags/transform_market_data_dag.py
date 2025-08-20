@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import logging
 from src.transform.transformer import DataTransformer
 from src.ingestion.database import DatabaseManager
-from src.ingestion.extract import read_tickers_from_file
+from src.common.utilfunctions import read_tickers_from_file
 from src.common.logger_config import setup_logging
 
 setup_logging()

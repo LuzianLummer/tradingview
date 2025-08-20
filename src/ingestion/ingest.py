@@ -15,9 +15,6 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 
- 
-
-
 class DataIngestor:
     def __init__(self):
         DatabaseManager.initialize()
@@ -50,8 +47,14 @@ class DataIngestor:
             return
 
         with DatabaseManager.get_session() as session:
-            symbols_list = [DataValidator.to_python_scalar(s) for s in df["symbol"].unique().tolist()]
-            timestamps_list = [DataValidator.to_python_scalar(t) for t in df["timestamp"].unique().tolist()]
+            symbols_list = [
+                DataValidator.to_python_scalar(s)
+                for s in df["symbol"].unique().tolist()
+            ]
+            timestamps_list = [
+                DataValidator.to_python_scalar(t)
+                for t in df["timestamp"].unique().tolist()
+            ]
 
             existing_raw = (
                 session.query(RawMarketData.symbol, RawMarketData.timestamp)

@@ -3,68 +3,52 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
+    env_file:
+      - .env
     ports:
-      - "5432:5432"
+      - "${POSTGRES_EXTERNAL_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # ORM is the single source of truth for schema; no SQL init file mounted
     healthcheck:
        test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER}"]
-       interval: 5s
-       timeout: 5s
-       retries: 5
+       interval: ${HEALTHCHECK_INTERVAL:-5s}
+       timeout: ${HEALTHCHECK_TIMEOUT:-5s}
+       retries: ${HEALTHCHECK_RETRIES:-5}
 
   # Airflow Services
   redis:
     image: redis:7-alpine
+    env_file:
+      - .env
     ports:
-      - "6379:6379"
+      - "${REDIS_EXTERNAL_PORT:-6379}:6379"
 
   airflow-init:
     build:
       context: .
       dockerfile: Dockerfile.airflow
+    env_file:
+      - .env
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
-      AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
       PYTHONPATH: /opt/airflow/tradingview_project
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     depends_on:
       postgres:
         condition: service_healthy
-    entrypoint: ["/bin/bash", "-c", "airflow db migrate && airflow users create --username admin --password admin --firstname Peter --lastname Parker --role Admin --email admin@example.com || true"]
+    entrypoint: ["/bin/bash", "-c", "airflow db migrate || true"]
 
   airflow-webserver:
     build:
       context: .
       dockerfile: Dockerfile.airflow
+    env_file:
+      - .env
     ports:
-      - "8080:8080"
+      - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
-      AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
       PYTHONPATH: /opt/airflow/tradingview_project
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
@@ -82,19 +66,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.airflow
+    env_file:
+      - .env
     environment:
       AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
-      AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
       PYTHONPATH: /opt/airflow/tradingview_project
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
@@ -112,19 +88,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.airflow
+    env_file:
+      - .env
     environment:
-      AIRFLOW_HOME: /opt/airflow
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-      AIRFLOW__CELERY__BROKER_URL: redis://redis:6379/0
-      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${POSTGRES_USER:-tradingview}:${POSTGRES_PASSWORD:-tradingview}@postgres/${POSTGRES_DB:-tradingview}
-      AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW__WEBSERVER__SECRET_KEY:-dev-secret}
-      AIRFLOW__LOGGING__REMOTE_LOGGING: "False"
+      AIRFLOW_HOME: /opt/airflow 
       PYTHONPATH: /opt/airflow/tradingview_project
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: ${POSTGRES_USER:-tradingview}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tradingview}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingview}
     volumes:
       - ./dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
@@ -142,6 +110,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file:
+      - .env
     volumes:
       - ./src:/app/src
       - ./dags:/app/dags
@@ -155,6 +125,9 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-tradingview}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-tradingview}
       - POSTGRES_DB=${POSTGRES_DB:-tradingview}
+      - API_TIMEOUT=${API_TIMEOUT:-15}
+      - API_MAX_RETRIES=${API_MAX_RETRIES:-3}
+      - API_BACKOFF_FACTOR=${API_BACKOFF_FACTOR:-2}
 
 volumes:
   postgres_data: 
