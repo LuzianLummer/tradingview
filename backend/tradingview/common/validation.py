@@ -4,7 +4,7 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
-from src.common.logger_config import setup_logging
+from tradingview.common.logger_config import setup_logging
 
 
 setup_logging()
@@ -43,13 +43,11 @@ class DataValidator:
             }
         ).copy()
 
-        # If index looks like a datetime index from yfinance/history, move it to a column
         if not any(
             c in df_out.columns for c in ["timestamp", "Datetime", "Date", "index"]
         ):
             df_out.reset_index(inplace=True)
 
-        # Normalize time column name
         rename_candidates = {
             "Datetime": "timestamp",
             "Date": "timestamp",
@@ -59,11 +57,9 @@ class DataValidator:
             if old in df_out.columns and new not in df_out.columns:
                 df_out.rename(columns={old: new}, inplace=True)
 
-        # Ensure symbol column
         if symbol is not None:
             df_out["symbol"] = symbol
 
-        # Keep only the standard columns if present
         keep_cols = [
             c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c in df_out.columns
         ]
@@ -109,12 +105,10 @@ class DataValidator:
 
         df_out = df.copy()
 
-        # Ensure required columns exist before casting
         missing = [
             c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df_out.columns
         ]
         if missing:
-            # Try to be forgiving if common alternative names exist
             rename_map = {}
             if "Datetime" in df_out.columns:
                 rename_map["Datetime"] = "timestamp"
@@ -130,7 +124,6 @@ class DataValidator:
         if missing:
             raise ValidationError(f"Missing required columns: {missing}")
 
-        # Cast dtypes
         df_out["timestamp"] = pd.to_datetime(
             df_out["timestamp"], errors="coerce", utc=False
         )
@@ -140,19 +133,15 @@ class DataValidator:
         for col in numeric_cols:
             df_out[col] = pd.to_numeric(df_out[col], errors="coerce")
 
-        # Basic cleanup: drop rows where key fields are NA after coercion
         df_out = df_out.dropna(
             subset=["symbol", "timestamp", "open", "high", "low", "close", "volume"]
         )
 
-        # Normalize volume to integer if possible
         try:
             df_out["volume"] = df_out["volume"].round(0).astype(np.int64)
         except Exception:
-            # keep as float if casting fails
             pass
 
-        # Reorder columns
         df_out = df_out[DataValidator.REQUIRED_MARKET_COLUMNS]
         return df_out
 
@@ -184,14 +173,12 @@ class DataValidator:
         if df.empty and require_non_empty:
             raise ValidationError("DataFrame is empty")
 
-        # Columns
         missing = [
             c for c in DataValidator.REQUIRED_MARKET_COLUMNS if c not in df.columns
         ]
         if missing:
             raise ValidationError(f"Missing required columns: {missing}")
 
-        # Types and values
         if not np.issubdtype(df["timestamp"].dtype, np.datetime64):
             raise ValidationError("timestamp column must be datetime64")
 
@@ -200,7 +187,6 @@ class DataValidator:
             if not np.issubdtype(df[col].dtype, np.number):
                 raise ValidationError(f"{col} must be numeric")
 
-        # Value checks
         if (
             (df["open"] < 0).any()
             or (df["high"] < 0).any()
@@ -211,7 +197,6 @@ class DataValidator:
         if (df["volume"] < 0).any():
             raise ValidationError("volume contains negative values")
 
-        # Key uniqueness check per symbol+timestamp
         dup_mask = df.duplicated(subset=["symbol", "timestamp"], keep=False)
         if dup_mask.any():
             dups = df.loc[dup_mask, ["symbol", "timestamp"]].head(5).to_dict("records")
@@ -229,3 +214,5 @@ class DataValidator:
             return
         if df["timestamp"].min() < start or df["timestamp"].max() > end:
             raise ValidationError("Rows fall outside the requested time window")
+
+

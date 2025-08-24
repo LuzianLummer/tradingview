@@ -27,12 +27,11 @@ services:
   airflow-init:
     build:
       context: .
-      dockerfile: Dockerfile.airflow
+      dockerfile: airflow/Dockerfile
     env_file:
       - .env
     environment:
       AIRFLOW_HOME: /opt/airflow
-      PYTHONPATH: /opt/airflow/tradingview_project
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,18 +40,16 @@ services:
   airflow-webserver:
     build:
       context: .
-      dockerfile: Dockerfile.airflow
+      dockerfile: airflow/Dockerfile
     env_file:
       - .env
     ports:
       - "${AIRFLOW_WEBSERVER_PORT:-8080}:8080"
     environment:
       AIRFLOW_HOME: /opt/airflow
-      PYTHONPATH: /opt/airflow/tradingview_project
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./backend/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
-      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -65,16 +62,14 @@ services:
   airflow-scheduler:
     build:
       context: .
-      dockerfile: Dockerfile.airflow
+      dockerfile: airflow/Dockerfile
     env_file:
       - .env
     environment:
       AIRFLOW_HOME: /opt/airflow
-      PYTHONPATH: /opt/airflow/tradingview_project
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./backend/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
-      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -87,16 +82,14 @@ services:
   airflow-worker:
     build:
       context: .
-      dockerfile: Dockerfile.airflow
+      dockerfile: airflow/Dockerfile
     env_file:
       - .env
     environment:
       AIRFLOW_HOME: /opt/airflow 
-      PYTHONPATH: /opt/airflow/tradingview_project
     volumes:
-      - ./dags:/opt/airflow/dags
+      - ./backend/dags:/opt/airflow/dags
       - airflow_logs:/opt/airflow/logs
-      - .:/opt/airflow/tradingview_project
     depends_on:
       redis:
         condition: service_started
@@ -108,14 +101,10 @@ services:
 
   ingestion:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     env_file:
       - .env
-    volumes:
-      - ./src:/app/src
-      - ./dags:/app/dags
-      - ./src/ingestion/tickers.txt:/app/src/ingestion/tickers.txt
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,6 +117,23 @@ services:
       - API_TIMEOUT=${API_TIMEOUT:-15}
       - API_MAX_RETRIES=${API_MAX_RETRIES:-3}
       - API_BACKOFF_FACTOR=${API_BACKOFF_FACTOR:-2}
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${STREAMLIT_PORT:-8501}:8501"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=${POSTGRES_USER:-tradingview}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-tradingview}
+      - POSTGRES_DB=${POSTGRES_DB:-tradingview}
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data: 

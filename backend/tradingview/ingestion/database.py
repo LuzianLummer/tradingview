@@ -6,9 +6,9 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
-from src.common.logger_config import setup_logging
-from src.common.settings import db_settings
-from src.ingestion.models import Base, MarketData, RawMarketData, create_all_tables
+from tradingview.common.logger_config import setup_logging
+from tradingview.common.settings import db_settings
+from tradingview.ingestion.models import Base, MarketData, RawMarketData, create_all_tables
 
 
 setup_logging()
@@ -34,7 +34,6 @@ class DatabaseManager:
                 bind=cls._engine,
             )
             create_all_tables(cls._engine)
-            # Ensure volume columns are BIGINT in case of old schema
             with cls._engine.begin() as conn:
                 try:
                     conn.execute(
@@ -107,3 +106,5 @@ class DatabaseManager:
         df = pd.read_sql(text(query), cls._engine, params=params)
         logger.info(f"Fetched {len(df)} records from database.")
         return df
+
+

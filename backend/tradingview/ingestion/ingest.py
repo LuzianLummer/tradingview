@@ -5,10 +5,10 @@ from typing import Optional
 import pandas as pd
 from sqlalchemy import func
 
-from src.common.logger_config import setup_logging
-from src.ingestion.database import DatabaseManager
-from src.ingestion.models import MarketData, RawMarketData
-from src.common.validation import DataValidator, ValidationError
+from tradingview.common.logger_config import setup_logging
+from tradingview.ingestion.database import DatabaseManager
+from tradingview.ingestion.models import MarketData, RawMarketData
+from tradingview.common.validation import DataValidator, ValidationError
 
 
 setup_logging()
@@ -22,21 +22,19 @@ class DataIngestor:
     def get_latest_timestamp_from_db(self, symbol: str) -> Optional[datetime]:
         with DatabaseManager.get_session() as session:
             latest_timestamp = (
-                session.query(func.max(RawMarketData.timestamp))
+                session.query(RawMarketData.timestamp)
                 .filter(RawMarketData.symbol == symbol)
+                .order_by(RawMarketData.timestamp.desc())
+                .limit(1)
                 .scalar()
             )
             return latest_timestamp
 
     def save_both_tables(self, df: pd.DataFrame):
-        """
-        Save into raw_market_data and market_data simultaneously, skipping duplicates by pre-check.
-        """
         if df.empty:
             logger.warning("Empty DataFrame received, nothing to save.")
             return
 
-        # Validate upfront to ensure DB cleanliness
         try:
             df = DataValidator.enforce_market_schema(df)
             df = DataValidator.deduplicate_market_dataframe(df)
@@ -48,8 +46,7 @@ class DataIngestor:
 
         with DatabaseManager.get_session() as session:
             symbols_list = [
-                DataValidator.to_python_scalar(s)
-                for s in df["symbol"].unique().tolist()
+                DataValidator.to_python_scalar(s) for s in df["symbol"].unique().tolist()
             ]
             timestamps_list = [
                 DataValidator.to_python_scalar(t)
@@ -115,3 +112,5 @@ class DataIngestor:
                 session.bulk_save_objects(new_market_rows)
             else:
                 logger.info("No new market_data rows to insert.")
+
+

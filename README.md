@@ -11,10 +11,12 @@ This project ingests market data (yfinance with Stooq fallback), stores both raw
 - Centralized logging and environment-driven settings
 
 ### Repository Layout
-- `src/common`: logging and settings
-- `src/ingestion`: models, database manager, extractor, ingestor, `tickers.txt`
-- `src/transform`: data transformer and simple ML utilities
-- `dags/`: Airflow DAGs
+- `backend/src/common`: logging and settings
+- `backend/src/ingestion`: models, database manager, extractor, ingestor, `tickers.txt`
+- `backend/src/transform`: data transformer and simple ML utilities
+- `backend/dags`: Airflow DAGs
+- `airflow/`: Airflow Dockerfile and requirements
+- `frontend/`: Streamlit app, Dockerfile and requirements
 
 ### Prerequisites
 - Docker and Docker Compose
@@ -30,7 +32,7 @@ This project ingests market data (yfinance with Stooq fallback), stores both raw
    docker-compose up --build
    ```
 3. Open Airflow Web UI at `http://localhost:8080` (default user created by init step).
-4. Place tickers into `src/ingestion/tickers.txt`.
+4. Place tickers into `backend/src/common/tickers.txt`.
 5. Trigger DAGs: `daily_market_insert` (scheduled) or `extract_historical_market_data` (manual backfill), and `transform_market_data`.
 
 ### Environment Variables

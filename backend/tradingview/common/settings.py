@@ -24,3 +24,5 @@ class AppSettings:
 
 db_settings = DatabaseSettings()
 app_settings = AppSettings()
+
+

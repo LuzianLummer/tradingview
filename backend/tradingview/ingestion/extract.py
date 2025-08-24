@@ -3,8 +3,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from io import StringIO
-from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import pandas as pd
 import requests
@@ -12,9 +11,8 @@ import yfinance as yf
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from src.common.logger_config import setup_logging
-from src.common.validation import DataValidator, ValidationError
-from src.common.utilfunctions import read_tickers_from_file
+from tradingview.common.logger_config import setup_logging
+from tradingview.common.validation import DataValidator, ValidationError
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -92,17 +90,7 @@ class DataExtractor:
                     if df_csv.empty:
                         continue
                     df_csv["symbol"] = symbol_in
-                    return df_csv[
-                        [
-                            "symbol",
-                            "timestamp",
-                            "open",
-                            "high",
-                            "low",
-                            "close",
-                            "volume",
-                        ]
-                    ]
+                    return df_csv[["symbol", "timestamp", "open", "high", "low", "close", "volume"]]
                 except Exception:
                     continue
             return None
@@ -116,16 +104,8 @@ class DataExtractor:
             data_local = _download_from_stooq(symbol_in, start_s, end_s)
             if data_local is not None and not data_local.empty:
                 return data_local
-            # Inform when falling back to Yahoo Finance because Stooq returned no data
             if data_local is None or data_local.empty:
-                if start_s and end_s:
-                    logger.info(
-                        f"Stooq returned no data for {symbol_in} from {start_s} to {end_s}; falling back to Yahoo Finance."
-                    )
-                else:
-                    logger.info(
-                        f"Stooq returned no data for {symbol_in} (period={period_s}); falling back to Yahoo Finance."
-                    )
+                pass
             if start_s and end_s:
                 data_local = yf.download(
                     tickers=symbol_in,
@@ -151,13 +131,9 @@ class DataExtractor:
                 return data_local
             ticker = yf.Ticker(symbol_in, session=self.session)
             if start_s and end_s:
-                data_local = ticker.history(
-                    start=start_s, end=end_s, interval=interval, auto_adjust=False
-                )
+                data_local = ticker.history(start=start_s, end=end_s, interval=interval, auto_adjust=False)
             else:
-                data_local = ticker.history(
-                    period=period_s or "max", interval=interval, auto_adjust=False
-                )
+                data_local = ticker.history(period=period_s or "max", interval=interval, auto_adjust=False)
             if data_local.empty:
                 return None
             return data_local
@@ -170,16 +146,12 @@ class DataExtractor:
             end_dt = datetime.fromisoformat(end_s)
             stooq_df = _download_from_stooq(symbol, start_s, end_s)
             if stooq_df is not None and not stooq_df.empty:
-                return DataValidator.combine_and_clean(
-                    [stooq_df], require_non_empty=True
-                )
+                return DataValidator.combine_and_clean([stooq_df], require_non_empty=True)
             chunk_size_days = 365 * 5
             frames: list[pd.DataFrame] = []
             current_start = start_dt
             while current_start <= end_dt:
-                current_end = min(
-                    current_start + timedelta(days=chunk_size_days), end_dt
-                )
+                current_end = min(current_start + timedelta(days=chunk_size_days), end_dt)
                 local_retries = 0
                 while local_retries <= max_retries:
                     try:
@@ -190,9 +162,7 @@ class DataExtractor:
                             None,
                         )
                         if data_local is None or data_local.empty:
-                            raise ValueError(
-                                "Empty dataframe from Yahoo Finance (chunk)"
-                            )
+                            raise ValueError("Empty dataframe from Yahoo Finance (chunk)")
                         frames.append(_normalize_dataframe(data_local))
                         break
                     except Exception as ex:
@@ -202,12 +172,7 @@ class DataExtractor:
                                 f"Chunk {current_start:%Y-%m-%d}..{current_end:%Y-%m-%d} for {symbol} failed: {ex}"
                             )
                             return None
-                        wait_time = backoff_factor**local_retries + random.uniform(
-                            0.5, 1.5
-                        )
-                        logger.info(
-                            f"Retry chunk for {symbol} in {wait_time:.1f}s after error: {ex}"
-                        )
+                        wait_time = backoff_factor**local_retries + random.uniform(0.5, 1.5)
                         time.sleep(wait_time)
                 time.sleep(random.uniform(1.0, 2.0))
                 current_start = current_end + timedelta(days=1)
@@ -215,16 +180,8 @@ class DataExtractor:
                 return None
             return DataValidator.combine_and_clean(frames, require_non_empty=True)
 
+        retries = 0
         while retries <= max_retries:
-            log_msg = f"Fetching data for {symbol}"
-            if start and end:
-                log_msg += f" from {start} to {end}"
-            elif period:
-                log_msg += f" for period {period}"
-            log_msg += (
-                f" interval {interval}... (attempt {retries + 1}/{max_retries + 1})"
-            )
-            logger.info(log_msg)
             try:
                 if start and end:
                     start_dt = datetime.fromisoformat(start)
@@ -243,27 +200,17 @@ class DataExtractor:
                     if data is None or data.empty:
                         raise ValueError("Empty dataframe from Yahoo Finance")
                     data = _normalize_dataframe(data)
-                # Global validation pipeline (unified)
                 try:
-                    data = DataValidator.combine_and_clean(
-                        [data], require_non_empty=True
-                    )
+                    data = DataValidator.combine_and_clean([data], require_non_empty=True)
                 except ValidationError as ve:
                     raise ValueError(f"Validation failed: {ve}")
-
-                logger.info(
-                    f"Fetched, normalized and validated {len(data)} rows for {symbol}."
-                )
                 return data
             except Exception as e:
-                logger.error(
-                    f"Error fetching {symbol} (attempt {retries + 1}/{max_retries + 1}): {e}"
-                )
                 retries += 1
                 if retries <= max_retries:
                     wait_time = backoff_factor**retries + random.uniform(0.5, 1.5)
-                    logger.info(f"Waiting {wait_time:.1f}s before next attempt...")
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"All {max_retries + 1} attempts for {symbol} failed.")
                     return None
+
+

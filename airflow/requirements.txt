@@ -1,8 +1,10 @@
+# Only additional libs Airflow needs beyond the base image
 psycopg2-binary==2.9.9
 pandas==2.1.4
-python-dotenv==1.0.0
 requests==2.31.0
 SQLAlchemy==1.4.49
 yfinance==0.2.37
 numpy==1.26.4
 scikit-learn==1.3.2
+
+

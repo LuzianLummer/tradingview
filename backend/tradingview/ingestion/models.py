@@ -48,3 +48,5 @@ class RawMarketData(Base):
 
 def create_all_tables(engine):
     Base.metadata.create_all(engine)
+
+

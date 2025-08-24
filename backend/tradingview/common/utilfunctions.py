@@ -1,8 +1,8 @@
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
-from src.common.logger_config import setup_logging
+from tradingview.common.logger_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -22,3 +22,5 @@ def read_tickers_from_file(file_name: str = "tickers.txt") -> List[str]:
         logger.error(f"Ticker file not found: {tickers_file_path}")
         return []
     return tickers
+
+

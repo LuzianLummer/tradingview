@@ -2,10 +2,10 @@ from airflow.decorators import dag, task
 from datetime import datetime, timedelta
 
 import logging
-from src.ingestion.extract import DataExtractor
-from src.common.utilfunctions import read_tickers_from_file
-from src.ingestion.ingest import DataIngestor
-from src.common.logger_config import setup_logging
+from tradingview.ingestion.extract import DataExtractor
+from tradingview.common.utilfunctions import read_tickers_from_file
+from tradingview.ingestion.ingest import DataIngestor
+from tradingview.common.logger_config import setup_logging
 import time
 import random
 
@@ -34,25 +34,20 @@ def daily_market_insert():
         for symbol in symbols:
             latest_timestamp = data_ingestor.get_latest_timestamp_from_db(symbol)
 
-            # Calculate end_date based on Airflow's data_interval_end
-            # The end date for data extraction is the data_interval_end, which represents the date for which the DAG run is processing data.
             end_date_dt = data_interval_end
             end_date = end_date_dt.strftime("%Y-%m-%d")
 
             start_date = None
             if latest_timestamp:
-                # Start fetching from the day after the last recorded timestamp
                 start_date_dt = latest_timestamp + timedelta(days=1)
-                # Make start_date_dt timezone-aware using the timezone from data_interval_end
                 if start_date_dt.tzinfo is None and end_date_dt.tzinfo is not None:
                     start_date_dt = start_date_dt.replace(tzinfo=end_date_dt.tzinfo)
 
-                # Ensure start_date is not after end_date
                 if start_date_dt > end_date_dt:
                     logger.info(
                         f"Data for {symbol} is already up to date for {end_date_dt.strftime('%Y-%m-%d')}. Skipping."
                     )
-                    continue  # Skip to the next symbol
+                    continue
 
                 start_date = start_date_dt.strftime("%Y-%m-%d")
                 logger.info(
@@ -67,13 +62,13 @@ def daily_market_insert():
                 symbol=symbol, start=start_date, end=end_date, interval="1d"
             )
             if raw_data is not None:
-                # Save into raw_market_data and market_data directly
                 data_ingestor.save_both_tables(raw_data)
-            # Small pause between symbols to ease rate limits (also helpful for Stooq/other sources)
             time.sleep(random.uniform(0.8, 1.6))
-        return symbols  # Return symbols as metadata for downstream tasks
+        return symbols
 
     symbols_fetched = extract()
 
 
 daily_market_insert_dag = daily_market_insert()
+
+
