@@ -33,7 +33,7 @@ This project ingests market data (yfinance with Stooq fallback), stores both raw
    ```
 3. Open Airflow Web UI at `http://localhost:8080` (default user created by init step).
 4. Place tickers into `backend/src/common/tickers.txt`.
-5. Trigger DAGs: `daily_market_insert` (scheduled) or `extract_historical_market_data` (manual backfill), and `transform_market_data`.
+5. Trigger DAGs: `daily_market_insert` (scheduled) and `transform_market_data`.
 
 ### Environment Variables
 See `.env.example` for all variables. Key ones:

@@ -8,7 +8,7 @@ from tradingview.ingestion.ingest import DataIngestor
 from tradingview.common.logger_config import setup_logging
 import time
 import random
-
+##now obsolete, use the new dag extract_historical_data_dag.py
 
 @dag(
     dag_id="extract_historical_market_data",

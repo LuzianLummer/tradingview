@@ -17,6 +17,30 @@ class MarketData(Base):
     close = Column(Float, nullable=False)
     volume = Column(BigInteger, nullable=False)
     market_state = Column(String(50), nullable=True)
+    
+    # Simple Moving Averages
+    sma_5 = Column(Float, nullable=True)
+    sma_10 = Column(Float, nullable=True)
+    sma_20 = Column(Float, nullable=True)
+    sma_50 = Column(Float, nullable=True)
+    sma_100 = Column(Float, nullable=True)
+    sma_200 = Column(Float, nullable=True)
+    
+    # Exponential Moving Averages
+    ema_5 = Column(Float, nullable=True)
+    ema_10 = Column(Float, nullable=True)
+    ema_20 = Column(Float, nullable=True)
+    ema_50 = Column(Float, nullable=True)
+    ema_100 = Column(Float, nullable=True)
+    ema_200 = Column(Float, nullable=True)
+    
+    # Weighted Moving Averages
+    wma_5 = Column(Float, nullable=True)
+    wma_10 = Column(Float, nullable=True)
+    wma_20 = Column(Float, nullable=True)
+    wma_50 = Column(Float, nullable=True)
+    wma_100 = Column(Float, nullable=True)
+    wma_200 = Column(Float, nullable=True)
 
     __table_args__ = (
         UniqueConstraint("symbol", "timestamp", name="_symbol_timestamp_uc"),
