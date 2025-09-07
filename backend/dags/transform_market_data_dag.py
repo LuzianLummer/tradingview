@@ -35,7 +35,7 @@ def transform_market_data():
 
         for symbol in symbols:
             end_date = data_interval_end
-            start_date = end_date - timedelta(days=30)
+            start_date = end_date - timedelta(days=365)
 
             logger.info(
                 f"Fetching data for {symbol} from {start_date} to {end_date} for transformation."

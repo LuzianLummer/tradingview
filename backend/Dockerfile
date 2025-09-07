@@ -1,15 +1,15 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Install runtime deps (kept for CLI/tools if any)
-COPY requirements.txt ./requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install shared package
-COPY . /tmp/backend
-RUN pip install --no-cache-dir /tmp/backend
-
-ENV PYTHONUNBUFFERED=1
+# Copy minimal files first for better layer caching, then install package
+COPY pyproject.toml /tmp/backend/pyproject.toml
+COPY tradingview /tmp/backend/tradingview
+RUN pip install --no-compile --prefer-binary /tmp/backend[ml]
 
 

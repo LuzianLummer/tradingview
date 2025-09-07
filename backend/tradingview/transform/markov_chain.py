@@ -9,6 +9,7 @@ from sklearn.preprocessing import LabelEncoder
 from tradingview.common.logger_config import setup_logging
 from tradingview.ingestion.models import MarketData
 
+
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -17,9 +18,12 @@ class MarkovChainModel:
     def __init__(self):
         self.model = None
         self.label_encoder = None
+        # Lags in trading days to use as features alongside current daily return
+        # 0 represents the current day's return; others are historical lags
+        self.lags = [0, 1, 2, 5, 10, 20]
 
     def classify_market_data(self, daily_returns: List[float]):
-        """Classify market data into states based on daily returns."""
+       
         states = []
         for r in daily_returns:
             if r > 0.005:
@@ -35,7 +39,7 @@ class MarkovChainModel:
         return states
 
     def prepare_features_and_target(self, market_data: List[MarketData]):
-        """Prepare features and target for ML model training."""
+   
         features = []
         targets = []
         if len(market_data) < 2:
@@ -45,47 +49,41 @@ class MarkovChainModel:
             {
                 "symbol": md.symbol,
                 "timestamp": md.timestamp,
-                "open": md.open,
-                "high": md.high,
-                "low": md.low,
                 "close": md.close,
-                "volume": md.volume,
                 "market_state": md.market_state,
             }
             for md in market_data
         ])
-        df["daily_return"] = df["close"].pct_change().fillna(0)
-        df = df.dropna(subset=["market_state"])
-        if len(df) < 2:
+
+        # Ensure chronological order for correct lag/return computation
+        df = df.sort_values("timestamp").reset_index(drop=True)
+
+        # Compute daily returns
+        df["daily_return"] = df["close"].pct_change()
+
+        # Build lagged return features for specified horizons
+        feature_cols = []
+        for lag in self.lags:
+            col_name = f"ret_lag_{lag}"
+            if lag == 0:
+                df[col_name] = df["daily_return"]
+            else:
+                df[col_name] = df["daily_return"].shift(lag)
+            feature_cols.append(col_name)
+
+        # Target is the next day's market state
+        df["target_state"] = df["market_state"].shift(-1)
+
+        # Drop rows where features or target are missing
+        model_df = df.dropna(subset=feature_cols + ["target_state"])  # ensures sufficient history and next state
+        if len(model_df) == 0:
             return np.array(features), np.array(targets), None
 
-        X_list = []
-        y_list = []
-        for i in range(len(df) - 1):
-            current_row = df.iloc[i]
-            next_row = df.iloc[i + 1]
-            X_list.append([
-                current_row["open"],
-                current_row["high"],
-                current_row["low"],
-                current_row["close"],
-                current_row["volume"],
-                current_row["daily_return"],
-                current_row["market_state"],
-            ])
-            y_list.append(next_row["market_state"])
-
-        all_states = sorted(list(df["market_state"].unique()))
+        X = model_df[feature_cols].to_numpy()
         label_encoder = LabelEncoder()
-        label_encoder.fit(all_states)
+        y = label_encoder.fit_transform(model_df["target_state"].to_numpy())
 
-        X_encoded_states = []
-        for row_features in X_list:
-            encoded_state = label_encoder.transform([row_features[-1]])[0]
-            X_encoded_states.append(row_features[:-1] + [encoded_state])
-        y_encoded_targets = label_encoder.transform(y_list)
-
-        return np.array(X_encoded_states), np.array(y_encoded_targets), label_encoder
+        return X, y, label_encoder
 
     def train_transition_model(self, X, y):
         """Train the logistic regression model for state transitions."""
@@ -101,48 +99,48 @@ class MarkovChainModel:
         num_states = len(unique_states)
         state_to_index = {state: i for i, state in enumerate(unique_states)}
 
-        summed_probabilities = {state: np.zeros(num_states) for state in unique_states}
-        state_counts = {state: 0 for state in unique_states}
+        # Vectorized approach below, no per-state accumulators needed
 
         df = pd.DataFrame([
             {
                 "symbol": md.symbol,
                 "timestamp": md.timestamp,
-                "open": md.open,
-                "high": md.high,
-                "low": md.low,
                 "close": md.close,
-                "volume": md.volume,
                 "market_state": md.market_state,
             }
             for md in market_data
         ])
-        df["daily_return"] = df["close"].pct_change().fillna(0)
-        df = df.dropna(subset=["market_state"])
+        df = df.sort_values("timestamp").reset_index(drop=True)
+        df["daily_return"] = df["close"].pct_change()
+
+        feature_cols = []
+        for lag in self.lags:
+            col_name = f"ret_lag_{lag}"
+            if lag == 0:
+                df[col_name] = df["daily_return"]
+            else:
+                df[col_name] = df["daily_return"].shift(lag)
+            feature_cols.append(col_name)
+
+        df = df.dropna(subset=["market_state"] + feature_cols)
         if len(df) < 1:
             return {"matrix": [], "states": unique_states.tolist()}
 
-        for i in range(len(df) - 1):
-            current_row = df.iloc[i]
-            current_state_str = current_row["market_state"]
-            encoded_current_state = label_encoder.transform([current_state_str])[0]
-            features_for_prediction = np.array([
-                current_row["open"],
-                current_row["high"],
-                current_row["low"],
-                current_row["close"],
-                current_row["volume"],
-                current_row["daily_return"],
-                encoded_current_state,
-            ]).reshape(1, -1)
-            predicted_probs = model.predict_proba(features_for_prediction)[0]
-            summed_probabilities[current_state_str] += predicted_probs
-            state_counts[current_state_str] += 1
+        # Predict probabilities for all rows at once
+        probs = model.predict_proba(df[feature_cols].to_numpy(dtype=float))  # shape: (N, num_states)
+        probs_df = pd.DataFrame(probs, columns=unique_states)
+        probs_df["current_state"] = df["market_state"].values
 
+        # Average predicted next-state probabilities conditioned on current state
+        grouped_means = probs_df.groupby("current_state")[list(unique_states)].mean()
+
+        # Build transition matrix in the fixed order of unique_states
         transition_matrix = np.zeros((num_states, num_states))
         for state_str, index in state_to_index.items():
-            if state_counts[state_str] > 0:
-                transition_matrix[index, :] = summed_probabilities[state_str] / state_counts[state_str]
+            if state_str in grouped_means.index:
+                transition_matrix[index, :] = grouped_means.loc[state_str].to_numpy()
+            # else leave zeros if this current state did not occur
+
         return {"matrix": transition_matrix.tolist(), "states": unique_states.tolist()}
 
     def fit(self, market_data: List[MarketData]):
@@ -163,3 +161,5 @@ class MarkovChainModel:
             return None
         
         return self.calculate_transition_matrix(self.model, self.label_encoder, market_data)
+
+

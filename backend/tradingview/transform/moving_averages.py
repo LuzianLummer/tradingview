@@ -34,10 +34,13 @@ class MovingAverageCalculator(DataTransformer):
     
     def calculate_wma(self, data: pd.Series, period: int) -> pd.Series:
         """Calculate Weighted Moving Average."""
-        weights = np.arange(1, period + 1)
-        return data.rolling(window=period, min_periods=1).apply(
-            lambda x: np.dot(x, weights) / weights.sum(), raw=True
-        )
+        def _weighted_avg(window_values: np.ndarray) -> float:
+            window_length = window_values.shape[0]
+            # Use weights that match the current window length to avoid shape mismatch
+            dynamic_weights = np.arange(1, window_length + 1, dtype=float)
+            return float(np.dot(window_values, dynamic_weights) / dynamic_weights.sum())
+
+        return data.rolling(window=period, min_periods=1).apply(_weighted_avg, raw=True)
     
     def fetch_data_for_symbol(self, symbol: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None) -> pd.DataFrame:
         """Fetch market data for a symbol from database and convert to DataFrame."""

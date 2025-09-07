@@ -5,6 +5,7 @@ from typing import List, Optional
 from tradingview.common.logger_config import setup_logging
 from tradingview.ingestion.database import DatabaseManager
 from tradingview.ingestion.models import MarketData
+from tradingview.transform.markov_chain import MarkovChainModel
 
 
 setup_logging()
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 class DataTransformer:
     def __init__(self, db_url: Optional[str] = None):
         DatabaseManager.initialize(db_url)
+        self.markov_model = MarkovChainModel()
 
     def fetch_data_from_db(self, symbol: str, start_date: Optional[datetime] = None, end_date: Optional[datetime] = None):
         """Fetch market data for a symbol from database with optional date range."""
@@ -63,5 +65,18 @@ class DataTransformer:
                 session.bulk_update_mappings(MarketData, updates)
         except Exception:
             pass
+
+    # --- Markov model wrappers to keep DAG usage simple ---
+    def classify_market_data(self, daily_returns: List[float]):
+        return self.markov_model.classify_market_data(daily_returns)
+
+    def prepare_features_and_target(self, market_data: List[MarketData]):
+        return self.markov_model.prepare_features_and_target(market_data)
+
+    def train_transition_model(self, X, y):
+        return self.markov_model.train_transition_model(X, y)
+
+    def calculate_transition_matrix(self, trained_model, label_encoder, market_data: List[MarketData]):
+        return self.markov_model.calculate_transition_matrix(trained_model, label_encoder, market_data)
 
 
